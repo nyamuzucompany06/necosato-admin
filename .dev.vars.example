@@ -1,0 +1,5 @@
+# このファイルを .dev.vars という名前でコピーして使ってください（コピー先はGitにコミットしないこと）。
+# cp .dev.vars.example .dev.vars
+
+ADMIN_PASSWORD=necosato2026
+SESSION_SECRET=please-change-this-to-a-long-random-string

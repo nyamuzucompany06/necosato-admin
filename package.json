@@ -1,0 +1,14 @@
+{
+  "name": "necosato-admin",
+  "private": true,
+  "version": "1.0.0",
+  "description": "necosato 管理画面（Cloudflare Pages Functions + D1 + R2）",
+  "scripts": {
+    "dev": "wrangler pages dev . --d1=DB --r2=IMAGES",
+    "deploy": "wrangler pages deploy ."
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0",
+    "@cloudflare/workers-types": "^4.20250101.0"
+  }
+}

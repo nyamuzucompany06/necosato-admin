@@ -1,0 +1,21 @@
+name = "necosato-admin"
+compatibility_date = "2026-09-01"
+pages_build_output_dir = "."
+
+# ステップ3で `wrangler d1 create necosato-db` を実行すると database_id が表示されます。
+# それをそのまま下に貼り付けてください。
+[[d1_databases]]
+binding = "DB"
+database_name = "necosato-db"
+database_id = "ここにwrangler d1 createで表示されたIDを貼る"
+
+# necosato-site 側の wrangler.toml にも、必ず同じ database_id / bucket_name を設定してください。
+# （site と admin が別々のDB・バケットを見てしまうと、データがつながりません）
+
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "necosato-images"
+
+# ローカル開発用の環境変数はここではなく .dev.vars に書きます（.dev.vars.example を参照）。
+# 本番用の環境変数（ADMIN_PASSWORD, SESSION_SECRET）は
+# Cloudflareダッシュボード → Pagesプロジェクト → Settings → Environment variables で設定してください。
