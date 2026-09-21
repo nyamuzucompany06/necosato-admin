@@ -7,7 +7,7 @@ pages_build_output_dir = "."
 [[d1_databases]]
 binding = "DB"
 database_name = "necosato-db"
-database_id = "ここにwrangler d1 createで表示されたIDを貼る"
+database_id = "0961cf07-3054-419d-a067-36192f13905e"
 
 # necosato-site 側の wrangler.toml にも、必ず同じ database_id / bucket_name を設定してください。
 # （site と admin が別々のDB・バケットを見てしまうと、データがつながりません）
