@@ -138,6 +138,40 @@ function renderLogin(){
       </div>
       <div class="login-error" id="login-error"></div>
       <button class="btn btn-primary" id="login-submit">ログイン</button>
+      <button type="button" id="go-change" style="margin-top:16px;background:none;border:none;color:#666;font-size:12.5px;text-decoration:underline;cursor:pointer;">パスワードを変更する</button>
+    </div>
+  </div>`;
+}
+
+function renderChangeFromLogin(){
+  return `
+  <div class="login-shell">
+    <div class="login-card">
+      <h2>パスワードの変更</h2>
+      <div class="form-field"><label>現在のパスワード</label><input type="password" id="cl-current" autocomplete="current-password"></div>
+      <div class="form-field"><label>新しいパスワード（8文字以上）</label><input type="password" id="cl-new" autocomplete="new-password"></div>
+      <div class="form-field"><label>新しいパスワード（確認）</label><input type="password" id="cl-new2" autocomplete="new-password"></div>
+      <div class="login-error" id="cl-msg"></div>
+      <button class="btn btn-primary" id="cl-submit">変更する</button>
+      <button type="button" id="cl-back" style="margin-top:16px;background:none;border:none;color:#666;font-size:12.5px;text-decoration:underline;cursor:pointer;">ログイン画面に戻る</button>
+    </div>
+  </div>`;
+}
+
+function renderAdminPassword(){
+  return `
+  <div class="admin-shell">
+    ${renderAdminTopbar("admin-password")}
+    <div class="admin-body">
+      <div class="admin-panel" style="max-width:640px;margin:0 auto;">
+        <h2>パスワード変更</h2>
+        <p class="panel-note">変更すると、他の端末のログインは解除されます。</p>
+        <div class="form-field"><label>現在のパスワード</label><input type="password" id="pw-current" autocomplete="current-password"></div>
+        <div class="form-field"><label>新しいパスワード（8文字以上）</label><input type="password" id="pw-new" autocomplete="new-password"></div>
+        <div class="form-field"><label>新しいパスワード（確認）</label><input type="password" id="pw-new2" autocomplete="new-password"></div>
+        <div class="login-error" id="pw-msg"></div>
+        <button class="btn btn-primary" id="pw-submit">変更する</button>
+      </div>
     </div>
   </div>`;
 }
@@ -148,6 +182,7 @@ function renderAdminTopbar(active){
     <div class="admin-tabs">
       <button data-route="admin-cats" class="${active==='admin-cats'?'active':''}">猫管理</button>
       <button data-route="admin-settings" class="${active==='admin-settings'?'active':''}">サイト設定</button>
+      <button data-route="admin-password" class="${active==='admin-password'?'active':''}">パスワード変更</button>
     </div>
     <div class="right-actions">
       <button id="logout-btn">ログアウト</button>
@@ -411,6 +446,8 @@ function render(){
   if(state.route === "admin-login") html = renderLogin();
   else if(state.route === "admin-cats") html = renderAdminCats();
   else if(state.route === "admin-settings") html = renderAdminSettings();
+  else if(state.route === "admin-password") html = renderAdminPassword();
+  else if(state.route === "admin-change") html = renderChangeFromLogin();
   app.innerHTML = html;
   bindEvents();
 }
@@ -434,9 +471,59 @@ function bindEvents(){
     };
     submit.addEventListener("click", doLogin);
     pass.addEventListener("keydown", e=>{ if(e.key==="Enter") doLogin(); });
+    document.getElementById("go-change").addEventListener("click", ()=> go("admin-change"));
   }
 
-  if(state.route === "admin-cats" || state.route === "admin-settings"){
+  if(state.route === "admin-change"){
+    const msg = document.getElementById("cl-msg");
+    const submit = document.getElementById("cl-submit");
+    document.getElementById("cl-back").addEventListener("click", ()=> go("admin-login"));
+    submit.addEventListener("click", async ()=>{
+      msg.textContent = "";
+      const cur = document.getElementById("cl-current").value;
+      const n1 = document.getElementById("cl-new").value;
+      const n2 = document.getElementById("cl-new2").value;
+      if(!cur){ msg.textContent = "現在のパスワードを入力してください"; return; }
+      if(n1.length < 8){ msg.textContent = "新しいパスワードは8文字以上にしてください"; return; }
+      if(n1 !== n2){ msg.textContent = "確認用のパスワードが一致しません"; return; }
+      submit.disabled = true;
+      try{
+        await apiRequest("/api/password", "POST", { currentPassword: cur, newPassword: n1 });
+        showToast("パスワードを変更しました。ログインしてください");
+        go("admin-login");
+      }catch(e){
+        msg.textContent = e.message || "変更に失敗しました";
+      }finally{
+        submit.disabled = false;
+      }
+    });
+  }
+
+  if(state.route === "admin-password"){
+    const msg = document.getElementById("pw-msg");
+    const submit = document.getElementById("pw-submit");
+    submit.addEventListener("click", async ()=>{
+      msg.textContent = "";
+      const cur = document.getElementById("pw-current").value;
+      const n1 = document.getElementById("pw-new").value;
+      const n2 = document.getElementById("pw-new2").value;
+      if(!cur){ msg.textContent = "現在のパスワードを入力してください"; return; }
+      if(n1.length < 8){ msg.textContent = "新しいパスワードは8文字以上にしてください"; return; }
+      if(n1 !== n2){ msg.textContent = "確認用のパスワードが一致しません"; return; }
+      submit.disabled = true;
+      try{
+        await apiRequest("/api/password", "POST", { currentPassword: cur, newPassword: n1 });
+        showToast("パスワードを変更しました");
+        render(); // 入力欄を空に戻す
+      }catch(e){
+        msg.textContent = e.message || "変更に失敗しました";
+      }finally{
+        submit.disabled = false;
+      }
+    });
+  }
+
+  if(state.route === "admin-cats" || state.route === "admin-settings" || state.route === "admin-password"){
     document.querySelectorAll(".admin-tabs button").forEach(btn=>{
       btn.addEventListener("click", ()=>{ catFormData = emptyCatForm(); go(btn.dataset.route); });
     });
