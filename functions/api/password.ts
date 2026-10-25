@@ -1,10 +1,9 @@
 // functions/api/password.ts
-// POST { currentPassword, newPassword } -> パスワードを変更する
-// ログイン中でも、ログアウト中（ログイン画面から）でも使えます。
-// どちらの場合も「現在のパスワード」が合っていることが条件です。
+// POST { currentPassword, newPassword } -> ログイン中にパスワードを変更（ログイン必須）
 import type { Env } from "../utils/auth";
 import {
   isAuthed,
+  jsonUnauthorized,
   verifyPassword,
   hashNewPassword,
   validateNewPassword,
@@ -13,7 +12,7 @@ import {
 import { saveAdminPassword, invalidateAllResetTokens } from "../utils/db";
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
-  const wasLoggedIn = await isAuthed(request, env);
+  if (!(await isAuthed(request, env))) return jsonUnauthorized();
 
   let body: any = {};
   try {
@@ -37,13 +36,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   await saveAdminPassword(env, await hashNewPassword(newPassword));
   await invalidateAllResetTokens(env);
 
-  // ログイン中だった場合は、version が変わったので新しいCookieを渡す（ログインしたままにする）。
-  // ログアウト中だった場合は、ログイン状態にはせず、新しいパスワードでログインし直してもらう。
-  if (wasLoggedIn) {
-    const cookie = await makeSessionCookie(env);
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { "Content-Type": "application/json", "Set-Cookie": cookie },
-    });
-  }
-  return Response.json({ ok: true });
+  // version が変わったので、今使っているブラウザには新しいCookieを渡す（ログインしたままにする）
+  const cookie = await makeSessionCookie(env);
+  return new Response(JSON.stringify({ ok: true }), {
+    headers: { "Content-Type": "application/json", "Set-Cookie": cookie },
+  });
 };

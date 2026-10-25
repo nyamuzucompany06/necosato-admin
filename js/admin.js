@@ -92,7 +92,8 @@ const state = {
   adminFilterStatus: "すべて",
   adminFilterGender: "すべて",
   adminPage: 1,
-  adminPageSize: 6
+  adminPageSize: 6,
+  resetToken: ""
 };
 
 function showToast(msg){
@@ -138,22 +139,43 @@ function renderLogin(){
       </div>
       <div class="login-error" id="login-error"></div>
       <button class="btn btn-primary" id="login-submit">ログイン</button>
-      <button type="button" id="go-change" style="margin-top:16px;background:none;border:none;color:#666;font-size:12.5px;text-decoration:underline;cursor:pointer;">パスワードを変更する</button>
+      <button type="button" id="go-forgot" style="margin-top:16px;background:none;border:none;color:#666;font-size:12.5px;text-decoration:underline;cursor:pointer;">パスワードをお忘れの方・再設定はこちら</button>
     </div>
   </div>`;
 }
 
-function renderChangeFromLogin(){
+function renderForgot(){
   return `
   <div class="login-shell">
     <div class="login-card">
-      <h2>パスワードの変更</h2>
-      <div class="form-field"><label>現在のパスワード</label><input type="password" id="cl-current" autocomplete="current-password"></div>
-      <div class="form-field"><label>新しいパスワード（8文字以上）</label><input type="password" id="cl-new" autocomplete="new-password"></div>
-      <div class="form-field"><label>新しいパスワード（確認）</label><input type="password" id="cl-new2" autocomplete="new-password"></div>
-      <div class="login-error" id="cl-msg"></div>
-      <button class="btn btn-primary" id="cl-submit">変更する</button>
-      <button type="button" id="cl-back" style="margin-top:16px;background:none;border:none;color:#666;font-size:12.5px;text-decoration:underline;cursor:pointer;">ログイン画面に戻る</button>
+      <h2>パスワードの再設定</h2>
+      <p style="font-size:12.5px;color:#666;line-height:1.7;margin:0 0 18px;text-align:left;">登録しているメールアドレスを入力してください。再設定用のリンクをメールでお送りします。</p>
+      <div class="form-field">
+        <label>メールアドレス</label>
+        <input type="email" id="forgot-email" placeholder="admin@example.com">
+      </div>
+      <div class="login-error" id="forgot-msg"></div>
+      <button class="btn btn-primary" id="forgot-submit">再設定メールを送る</button>
+      <button type="button" id="back-login" style="margin-top:16px;background:none;border:none;color:#666;font-size:12.5px;text-decoration:underline;cursor:pointer;">ログイン画面に戻る</button>
+    </div>
+  </div>`;
+}
+
+function renderReset(){
+  return `
+  <div class="login-shell">
+    <div class="login-card">
+      <h2>新しいパスワードの設定</h2>
+      <div class="form-field">
+        <label>新しいパスワード（8文字以上）</label>
+        <input type="password" id="reset-pass" autocomplete="new-password">
+      </div>
+      <div class="form-field">
+        <label>新しいパスワード（確認）</label>
+        <input type="password" id="reset-pass2" autocomplete="new-password">
+      </div>
+      <div class="login-error" id="reset-msg"></div>
+      <button class="btn btn-primary" id="reset-submit">パスワードを設定する</button>
     </div>
   </div>`;
 }
@@ -447,7 +469,8 @@ function render(){
   else if(state.route === "admin-cats") html = renderAdminCats();
   else if(state.route === "admin-settings") html = renderAdminSettings();
   else if(state.route === "admin-password") html = renderAdminPassword();
-  else if(state.route === "admin-change") html = renderChangeFromLogin();
+  else if(state.route === "admin-forgot") html = renderForgot();
+  else if(state.route === "admin-reset") html = renderReset();
   app.innerHTML = html;
   bindEvents();
 }
@@ -464,31 +487,56 @@ function bindEvents(){
         state.loggedIn = true;
         go("admin-cats");
       }catch(e){
-        document.getElementById("login-error").textContent = "パスワードが違います";
+        // サーバーからのメッセージをそのまま表示する（パスワード違い以外のエラーも見分けられるように）
+        document.getElementById("login-error").textContent = e.message || "ログインに失敗しました";
       }finally{
         submit.disabled = false;
       }
     };
     submit.addEventListener("click", doLogin);
     pass.addEventListener("keydown", e=>{ if(e.key==="Enter") doLogin(); });
-    document.getElementById("go-change").addEventListener("click", ()=> go("admin-change"));
+    document.getElementById("go-forgot").addEventListener("click", ()=>{
+      state.prefillEmail = document.getElementById("login-email").value;
+      go("admin-forgot");
+    });
   }
 
-  if(state.route === "admin-change"){
-    const msg = document.getElementById("cl-msg");
-    const submit = document.getElementById("cl-submit");
-    document.getElementById("cl-back").addEventListener("click", ()=> go("admin-login"));
+  if(state.route === "admin-forgot"){
+    const emailInput = document.getElementById("forgot-email");
+    emailInput.value = state.prefillEmail || "";
+    const msg = document.getElementById("forgot-msg");
+    const submit = document.getElementById("forgot-submit");
+    document.getElementById("back-login").addEventListener("click", ()=> go("admin-login"));
     submit.addEventListener("click", async ()=>{
-      msg.textContent = "";
-      const cur = document.getElementById("cl-current").value;
-      const n1 = document.getElementById("cl-new").value;
-      const n2 = document.getElementById("cl-new2").value;
-      if(!cur){ msg.textContent = "現在のパスワードを入力してください"; return; }
-      if(n1.length < 8){ msg.textContent = "新しいパスワードは8文字以上にしてください"; return; }
-      if(n1 !== n2){ msg.textContent = "確認用のパスワードが一致しません"; return; }
+      msg.style.color = ""; msg.textContent = "";
+      if(!emailInput.value.trim()){ msg.textContent = "メールアドレスを入力してください"; return; }
       submit.disabled = true;
       try{
-        await apiRequest("/api/password", "POST", { currentPassword: cur, newPassword: n1 });
+        const data = await apiRequest("/api/password-reset-request", "POST", { email: emailInput.value });
+        msg.style.color = "#2a7a3b";
+        msg.textContent = (data && data.message) || "送信しました。メールをご確認ください。";
+      }catch(e){
+        msg.textContent = "送信に失敗しました。時間をおいてもう一度お試しください";
+      }finally{
+        submit.disabled = false;
+      }
+    });
+  }
+
+  if(state.route === "admin-reset"){
+    const msg = document.getElementById("reset-msg");
+    const submit = document.getElementById("reset-submit");
+    const doReset = async ()=>{
+      msg.style.color = ""; msg.textContent = "";
+      const p1 = document.getElementById("reset-pass").value;
+      const p2 = document.getElementById("reset-pass2").value;
+      if(p1.length < 8){ msg.textContent = "パスワードは8文字以上にしてください"; return; }
+      if(p1 !== p2){ msg.textContent = "確認用のパスワードが一致しません"; return; }
+      submit.disabled = true;
+      try{
+        await apiRequest("/api/password-reset-confirm", "POST", { token: state.resetToken, newPassword: p1 });
+        state.resetToken = "";
+        state.loggedIn = false;
         showToast("パスワードを変更しました。ログインしてください");
         go("admin-login");
       }catch(e){
@@ -496,7 +544,9 @@ function bindEvents(){
       }finally{
         submit.disabled = false;
       }
-    });
+    };
+    submit.addEventListener("click", doReset);
+    document.getElementById("reset-pass2").addEventListener("keydown", e=>{ if(e.key==="Enter") doReset(); });
   }
 
   if(state.route === "admin-password"){
@@ -644,6 +694,13 @@ function bindEvents(){
   state.cats = cats;
   state.settings = settings;
   state.route = loggedIn ? "admin-cats" : "admin-login";
+  // メールの再設定リンク（…/#reset=トークン）から来た場合は、再設定画面を表示する
+  const m = location.hash.match(/^#reset=([0-9a-f]{64})$/);
+  if(m){
+    state.resetToken = m[1];
+    state.route = "admin-reset";
+    history.replaceState(null, "", location.pathname); // URLからトークンを消す
+  }
   state.loading = false;
   render();
 })();
